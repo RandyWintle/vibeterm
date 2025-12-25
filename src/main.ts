@@ -26,7 +26,7 @@ class PtyManager {
 
     const shell = process.env.SHELL || '/bin/zsh';
 
-    const ptyProcess = pty.spawn(shell, [], {
+    const ptyProcess = pty.spawn(shell, ['-l'], {
       name: 'xterm-256color',
       cols: 80,
       rows: 24,
