@@ -88,6 +88,10 @@ const App: React.FC = () => {
         setTerminals((prev) => prev.filter((t) => t.id !== id));
     }, []);
 
+    const handleReorderTerminals = useCallback((newTerminals: TerminalInstance[]) => {
+        setTerminals(newTerminals);
+    }, []);
+
     const handleOpenQuickTerminal = useCallback(() => {
         const homeDir = window.electron?.env?.home || '/';
         const quickProject: Project = {
@@ -145,6 +149,7 @@ const App: React.FC = () => {
                     <TerminalGrid
                         terminals={terminals}
                         onCloseTerminal={handleCloseTerminal}
+                        onReorderTerminals={handleReorderTerminals}
                     />
                 )}
             </main>
