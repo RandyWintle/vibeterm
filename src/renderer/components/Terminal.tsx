@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -16,6 +16,7 @@ const Terminal: React.FC<TerminalProps> = ({ id, cwd, startupCommand }) => {
     const terminalRef = useRef<XTerm | null>(null);
     const fitAddonRef = useRef<FitAddon | null>(null);
     const { theme } = useTheme();
+    const [isDragOver, setIsDragOver] = useState(false);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -111,12 +112,57 @@ const Terminal: React.FC<TerminalProps> = ({ id, cwd, startupCommand }) => {
         }
     };
 
+    // Drag-and-drop handlers for file path insertion
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.dataTransfer.dropEffect = 'copy';
+    };
+
+    const handleDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(true);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+    };
+
+    const handleDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDragOver(false);
+
+        const files = e.dataTransfer?.files;
+        if (!files?.length) return;
+
+        // Get file paths, quote them for shell safety
+        const paths = Array.from(files)
+            .map(file => `"${(file as any).path}"`)
+            .join(' ');
+
+        // Write to PTY (sends to shell)
+        window.electron.pty.write(id, paths);
+    };
+
     return (
         <div
             ref={containerRef}
             onClick={handleClick}
+            onDragOver={handleDragOver}
+            onDragEnter={handleDragEnter}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
             className="w-full h-full min-h-[200px] cursor-text"
-            style={{ padding: '8px', backgroundColor: theme.terminal.background }}
+            style={{
+                padding: '8px',
+                backgroundColor: theme.terminal.background,
+                boxShadow: isDragOver ? `inset 0 0 0 2px ${theme.accent}` : 'none',
+                transition: 'box-shadow 0.15s ease',
+            }}
         />
     );
 };
