@@ -139,9 +139,9 @@ const Terminal: React.FC<TerminalProps> = ({ id, cwd, startupCommand }) => {
         const files = e.dataTransfer?.files;
         if (!files?.length) return;
 
-        // Get file paths, quote them for shell safety
+        // Get file paths using Electron's webUtils, quote them for shell safety
         const paths = Array.from(files)
-            .map(file => `"${(file as any).path}"`)
+            .map(file => `"${window.electron.utils.getFilePath(file)}"`)
             .join(' ');
 
         // Write to PTY (sends to shell)

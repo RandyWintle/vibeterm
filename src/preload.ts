@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 export interface Project {
     path: string;
@@ -52,6 +52,9 @@ export interface ElectronAPI {
     };
     env: {
         home: string;
+    };
+    utils: {
+        getFilePath: (file: File) => string;
     };
 }
 
@@ -115,6 +118,9 @@ const electronAPI: ElectronAPI = {
     },
     env: {
         home: homeDir,
+    },
+    utils: {
+        getFilePath: (file: File) => webUtils.getPathForFile(file),
     },
 };
 
