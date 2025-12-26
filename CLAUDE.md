@@ -12,9 +12,25 @@ npm start                  # Start Electron app in dev mode (hot reload enabled)
 npm run package            # Package app for current platform
 npm run make              # Create distributable installers
 
+# Test Build (use this when user asks to test the app)
+./scripts/build-install.sh # Build, install to /Applications, and launch
+
 # Code Quality
 npm run lint              # Run ESLint on TypeScript files
 ```
+
+## Testing Workflow
+
+When the user asks for a "test build", "build the app", or wants to test changes in the production app:
+
+1. Run `./scripts/build-install.sh`
+2. This script will:
+   - Build the production app with `npm run make`
+   - Kill any running VibeTerm instance
+   - Copy the `.app` to `/Applications` (overwriting existing)
+   - Launch the app automatically
+
+Always use this script for testing production builds rather than running commands manually.
 
 ## Architecture
 
