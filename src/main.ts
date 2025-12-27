@@ -529,6 +529,7 @@ function scanForProjects(rootPath: string, depth: number = 0, maxDepth: number =
 }
 
 let mainWindow: BrowserWindow | null = null;
+let isQuitting = false;
 const ptyManager = new PtyManager();
 const projectStore = new ProjectStore();
 const settingsStore = new SettingsStore();
@@ -561,13 +562,22 @@ const createWindow = () => {
   if (process.env.NODE_ENV === 'development' || MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.webContents.openDevTools();
   }
+
+  // Clean up PTY processes when window is about to close
+  mainWindow.on('close', () => {
+    isQuitting = true;
+    ptyManager.destroyAll();
+  });
 };
 
 // Terminal IPC handlers
 ipcMain.handle('pty:create', async (_, { id, cwd }: { id: string; cwd: string }) => {
   try {
     ptyManager.create(id, cwd, (data: string) => {
-      mainWindow?.webContents.send('pty:data', { id, data });
+      // Check if window exists, is not destroyed, and we're not quitting
+      if (!isQuitting && mainWindow && !mainWindow.isDestroyed() && mainWindow.webContents && !mainWindow.webContents.isDestroyed()) {
+        mainWindow.webContents.send('pty:data', { id, data });
+      }
     });
     return { success: true };
   } catch (error) {
@@ -769,10 +779,12 @@ app.on('window-all-closed', () => {
 
 app.on('activate', () => {
   if (BrowserWindow.getAllWindows().length === 0) {
+    isQuitting = false; // Reset flag when creating new window
     createWindow();
   }
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   ptyManager.destroyAll();
 });
