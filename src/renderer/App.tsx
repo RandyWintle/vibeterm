@@ -71,12 +71,19 @@ const App: React.FC = () => {
         setConfigProject(null);
     }, []);
 
-    const handleOpenTerminal = useCallback((project: Project) => {
+    const handleOpenTerminal = useCallback(async (project: Project) => {
+        // Get settings to check for default command
+        let effectiveCommand = project.startupCommand;
+        if (!effectiveCommand && window.electron) {
+            const settings = await window.electron.settings.get();
+            effectiveCommand = settings.defaultStartupCommand;
+        }
+
         const newTerminal: TerminalInstance = {
             id: uuidv4(),
             cwd: project.path,
             name: project.name,
-            startupCommand: project.startupCommand,
+            startupCommand: effectiveCommand,
         };
         setTerminals((prev) => [...prev, newTerminal]);
     }, []);

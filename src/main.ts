@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, Menu, shell } from 'electron';
 import path from 'node:path';
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
@@ -361,10 +361,49 @@ class ProjectStore {
   }
 }
 
+interface QuickCommand {
+  id: string;
+  command: string;
+  label?: string;
+  category?: string;
+}
+
 interface AppSettings {
   rootDevDirectory?: string;
   autoScanOnStartup?: boolean;
+  quickCommands?: QuickCommand[];
+  defaultStartupCommand?: string;
 }
+
+const DEFAULT_QUICK_COMMANDS: QuickCommand[] = [
+  // AI/Coding
+  { id: 'ai-claude', command: 'claude', category: 'AI/Coding' },
+  { id: 'ai-aider', command: 'aider', category: 'AI/Coding' },
+  { id: 'ai-copilot', command: 'gh copilot', category: 'AI/Coding' },
+
+  // Dev Servers
+  { id: 'dev-npm-dev', command: 'npm run dev', category: 'Dev Servers' },
+  { id: 'dev-npm-start', command: 'npm start', category: 'Dev Servers' },
+  { id: 'dev-yarn-dev', command: 'yarn dev', category: 'Dev Servers' },
+  { id: 'dev-python-http', command: 'python -m http.server', category: 'Dev Servers' },
+  { id: 'dev-flask', command: 'flask run', category: 'Dev Servers' },
+  { id: 'dev-rails', command: 'rails s', category: 'Dev Servers' },
+
+  // Git Tools
+  { id: 'git-lazygit', command: 'lazygit', category: 'Git' },
+  { id: 'git-tig', command: 'tig', category: 'Git' },
+  { id: 'git-status', command: 'git status', category: 'Git' },
+
+  // Editors
+  { id: 'edit-nvim', command: 'nvim .', category: 'Editors' },
+  { id: 'edit-vim', command: 'vim .', category: 'Editors' },
+  { id: 'edit-code', command: 'code .', category: 'Editors' },
+
+  // Utilities
+  { id: 'util-htop', command: 'htop', category: 'Utilities' },
+  { id: 'util-docker', command: 'docker compose up', category: 'Utilities' },
+  { id: 'util-make', command: 'make', category: 'Utilities' },
+];
 
 class SettingsStore {
   private store: InstanceType<typeof Store>;
@@ -375,6 +414,8 @@ class SettingsStore {
       defaults: {
         rootDevDirectory: undefined,
         autoScanOnStartup: false,
+        quickCommands: DEFAULT_QUICK_COMMANDS,
+        defaultStartupCommand: undefined,
       },
     });
   }
@@ -383,6 +424,8 @@ class SettingsStore {
     return {
       rootDevDirectory: this.store.get('rootDevDirectory') as string | undefined,
       autoScanOnStartup: this.store.get('autoScanOnStartup', false) as boolean,
+      quickCommands: this.store.get('quickCommands', DEFAULT_QUICK_COMMANDS) as QuickCommand[],
+      defaultStartupCommand: this.store.get('defaultStartupCommand') as string | undefined,
     };
   }
 
@@ -396,6 +439,20 @@ class SettingsStore {
     }
     if (settings.autoScanOnStartup !== undefined) {
       this.store.set('autoScanOnStartup', settings.autoScanOnStartup);
+    }
+    if ('quickCommands' in settings) {
+      if (settings.quickCommands === undefined) {
+        this.store.set('quickCommands', DEFAULT_QUICK_COMMANDS);
+      } else {
+        this.store.set('quickCommands', settings.quickCommands);
+      }
+    }
+    if ('defaultStartupCommand' in settings) {
+      if (settings.defaultStartupCommand === undefined) {
+        this.store.delete('defaultStartupCommand');
+      } else {
+        this.store.set('defaultStartupCommand', settings.defaultStartupCommand);
+      }
     }
     return this.get();
   }
@@ -600,6 +657,105 @@ ipcMain.handle('git:fixPlan', async (_, projectPath: string) => {
 
 ipcMain.handle('git:fix', async (_, projectPath: string) => {
   return executeGitFix(projectPath);
+});
+
+// Git push
+ipcMain.handle('git:push', async (_, projectPath: string) => {
+  const { execSync } = require('node:child_process');
+  try {
+    const output = execSync('git push', {
+      cwd: projectPath,
+      encoding: 'utf8',
+      timeout: 60000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return { success: true, output };
+  } catch (error: unknown) {
+    const err = error as { message?: string; stderr?: string };
+    return { success: false, error: err.stderr || err.message || 'Push failed' };
+  }
+});
+
+// Git pull
+ipcMain.handle('git:pull', async (_, projectPath: string) => {
+  const { execSync } = require('node:child_process');
+  try {
+    const output = execSync('git pull', {
+      cwd: projectPath,
+      encoding: 'utf8',
+      timeout: 60000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return { success: true, output };
+  } catch (error: unknown) {
+    const err = error as { message?: string; stderr?: string };
+    return { success: false, error: err.stderr || err.message || 'Pull failed' };
+  }
+});
+
+// Git fetch
+ipcMain.handle('git:fetch', async (_, projectPath: string) => {
+  const { execSync } = require('node:child_process');
+  try {
+    const output = execSync('git fetch', {
+      cwd: projectPath,
+      encoding: 'utf8',
+      timeout: 30000,
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+    return { success: true, output };
+  } catch (error: unknown) {
+    const err = error as { message?: string; stderr?: string };
+    return { success: false, error: err.stderr || err.message || 'Fetch failed' };
+  }
+});
+
+// Context menu for projects
+ipcMain.handle('context-menu:project', async (event, { projectPath, x, y }: { projectPath: string; x: number; y: number }) => {
+  return new Promise<{ action: string } | null>((resolve) => {
+    const template: Electron.MenuItemConstructorOptions[] = [
+      {
+        label: 'Open in Finder',
+        click: () => {
+          shell.showItemInFolder(projectPath);
+          resolve({ action: 'openInFinder' });
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'GitHub',
+        submenu: [
+          {
+            label: 'Push',
+            click: () => resolve({ action: 'git:push' }),
+          },
+          {
+            label: 'Pull',
+            click: () => resolve({ action: 'git:pull' }),
+          },
+          { type: 'separator' },
+          {
+            label: 'Fetch',
+            click: () => resolve({ action: 'git:fetch' }),
+          },
+          {
+            label: 'Fix...',
+            click: () => resolve({ action: 'git:fix' }),
+          },
+        ],
+      },
+    ];
+
+    const menu = Menu.buildFromTemplate(template);
+    menu.popup({
+      window: BrowserWindow.fromWebContents(event.sender) || undefined,
+      x,
+      y,
+      callback: () => {
+        resolve(null);
+      },
+    });
+  });
 });
 
 app.on('ready', createWindow);

@@ -159,6 +159,40 @@ const Sidebar: React.FC<SidebarProps> = ({
         };
     }, [isResizing, onResize]);
 
+    const handleContextMenu = useCallback(async (e: React.MouseEvent, project: Project) => {
+        e.preventDefault();
+        if (!window.electron) return;
+
+        const result = await window.electron.contextMenu.showProject(
+            project.path,
+            e.clientX,
+            e.clientY
+        );
+
+        if (!result) return;
+
+        switch (result.action) {
+            case 'openInFinder':
+                // Already handled in main process
+                break;
+            case 'git:push':
+                await window.electron.git.push(project.path);
+                refreshGitStatuses();
+                break;
+            case 'git:pull':
+                await window.electron.git.pull(project.path);
+                refreshGitStatuses();
+                break;
+            case 'git:fetch':
+                await window.electron.git.fetch(project.path);
+                refreshGitStatuses();
+                break;
+            case 'git:fix':
+                onGitFix(project);
+                break;
+        }
+    }, [refreshGitStatuses, onGitFix]);
+
     return (
         <aside
             className="border-r flex flex-col pt-10 relative"
@@ -244,6 +278,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 key={project.path}
                                 className="project-item group animate-slide-in-bounce no-drag"
                                 style={{ animationDelay: `${index * 40}ms` }}
+                                onContextMenu={(e) => handleContextMenu(e, project)}
                             >
                                 <button
                                     onClick={() => onOpenTerminal(project)}

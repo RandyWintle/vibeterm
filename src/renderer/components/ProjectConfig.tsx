@@ -1,5 +1,17 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Project } from '../App';
+
+interface QuickCommand {
+    id: string;
+    command: string;
+    label?: string;
+    category?: string;
+}
+
+interface AppSettings {
+    quickCommands?: QuickCommand[];
+    defaultStartupCommand?: string;
+}
 
 interface ProjectConfigProps {
     project: Project;
@@ -9,12 +21,51 @@ interface ProjectConfigProps {
 
 const ProjectConfig: React.FC<ProjectConfigProps> = ({ project, onSave, onClose }) => {
     const [command, setCommand] = useState(project.startupCommand || '');
+    const [settings, setSettings] = useState<AppSettings>({});
+    const [searchFilter, setSearchFilter] = useState('');
+
+    useEffect(() => {
+        if (window.electron) {
+            window.electron.settings.get().then(setSettings);
+        }
+    }, []);
 
     const handleSave = () => {
         onSave(project.path, command.trim() || undefined);
     };
 
-    const presets = ['claude', 'npm run dev', 'npm start', 'code .', 'git status'];
+    const handleClear = () => {
+        setCommand('');
+    };
+
+    // Group commands by category
+    const groupedCommands = useMemo(() => {
+        const commands = settings.quickCommands || [];
+        const filtered = searchFilter
+            ? commands.filter(c =>
+                c.command.toLowerCase().includes(searchFilter.toLowerCase()) ||
+                c.label?.toLowerCase().includes(searchFilter.toLowerCase())
+            )
+            : commands;
+
+        return filtered.reduce((acc, cmd) => {
+            const cat = cmd.category || 'Other';
+            if (!acc[cat]) acc[cat] = [];
+            acc[cat].push(cmd);
+            return acc;
+        }, {} as Record<string, QuickCommand[]>);
+    }, [settings.quickCommands, searchFilter]);
+
+    // Category display order
+    const categoryOrder = ['AI/Coding', 'Dev Servers', 'Git', 'Editors', 'Utilities', 'Custom', 'Other'];
+    const sortedCategories = Object.keys(groupedCommands).sort((a, b) => {
+        const aIndex = categoryOrder.indexOf(a);
+        const bIndex = categoryOrder.indexOf(b);
+        if (aIndex === -1 && bIndex === -1) return a.localeCompare(b);
+        if (aIndex === -1) return 1;
+        if (bIndex === -1) return -1;
+        return aIndex - bIndex;
+    });
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -25,7 +76,7 @@ const ProjectConfig: React.FC<ProjectConfigProps> = ({ project, onSave, onClose 
             />
 
             {/* Modal */}
-            <div className="modal w-full max-w-md mx-4 animate-fade-up-bounce">
+            <div className="modal w-full max-w-lg mx-4 animate-fade-up-bounce">
                 {/* Header */}
                 <div className="modal-header flex items-center justify-between">
                     <h2 className="text-lg font-semibold" style={{ color: 'var(--text-primary)' }}>
@@ -64,34 +115,77 @@ const ProjectConfig: React.FC<ProjectConfigProps> = ({ project, onSave, onClose 
                         <label className="section-header block mb-2">
                             Startup Command
                         </label>
-                        <input
-                            type="text"
-                            value={command}
-                            onChange={(e) => setCommand(e.target.value)}
-                            placeholder="e.g., claude, npm run dev, code ."
-                            className="input font-mono"
-                        />
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={command}
+                                onChange={(e) => setCommand(e.target.value)}
+                                placeholder="e.g., claude, npm run dev, code ."
+                                className="input font-mono flex-1"
+                            />
+                            {command && (
+                                <button
+                                    onClick={handleClear}
+                                    className="btn btn-outline"
+                                    title="Clear to use default"
+                                >
+                                    Clear
+                                </button>
+                            )}
+                        </div>
                         <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
-                            This command will automatically run when you open a terminal for this project.
+                            This command runs when you open a terminal for this project.
+                            {settings.defaultStartupCommand && !command && (
+                                <span style={{ color: 'var(--accent)' }}>
+                                    {' '}Global default: {settings.defaultStartupCommand}
+                                </span>
+                            )}
                         </p>
                     </div>
 
-                    {/* Quick Presets */}
+                    {/* Quick Commands */}
                     <div>
-                        <label className="section-header block mb-3">
-                            Quick Presets
+                        <label className="section-header block mb-2">
+                            Quick Commands
                         </label>
-                        <div className="flex flex-wrap gap-2">
-                            {presets.map((preset, index) => (
-                                <button
-                                    key={preset}
-                                    onClick={() => setCommand(preset)}
-                                    className="preset-pill animate-scale-in-bounce"
-                                    style={{ animationDelay: `${index * 50}ms` }}
-                                >
-                                    {preset}
-                                </button>
-                            ))}
+                        <input
+                            type="text"
+                            value={searchFilter}
+                            onChange={(e) => setSearchFilter(e.target.value)}
+                            placeholder="Search commands..."
+                            className="input mb-3"
+                        />
+                        <div
+                            className="max-h-48 overflow-y-auto rounded-lg p-3"
+                            style={{ backgroundColor: 'var(--bg-surface)' }}
+                        >
+                            {sortedCategories.length === 0 ? (
+                                <p className="text-sm text-center py-4" style={{ color: 'var(--text-muted)' }}>
+                                    No commands found
+                                </p>
+                            ) : (
+                                sortedCategories.map((category) => (
+                                    <div key={category} className="mb-3 last:mb-0">
+                                        <div
+                                            className="text-xs font-medium mb-2"
+                                            style={{ color: 'var(--text-muted)' }}
+                                        >
+                                            {category}
+                                        </div>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {groupedCommands[category].map((cmd) => (
+                                                <button
+                                                    key={cmd.id}
+                                                    onClick={() => setCommand(cmd.command)}
+                                                    className="preset-pill"
+                                                >
+                                                    {cmd.label || cmd.command}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </div>
                 </div>

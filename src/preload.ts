@@ -6,9 +6,18 @@ export interface Project {
     startupCommand?: string;
 }
 
+export interface QuickCommand {
+    id: string;
+    command: string;
+    label?: string;
+    category?: string;
+}
+
 export interface AppSettings {
     rootDevDirectory?: string;
     autoScanOnStartup?: boolean;
+    quickCommands?: QuickCommand[];
+    defaultStartupCommand?: string;
 }
 
 export type GitStatusType = 'clean' | 'modified' | 'ahead' | 'behind' | 'diverged' | 'no-remote' | 'not-git' | 'error';
@@ -46,6 +55,12 @@ export interface ElectronAPI {
         statusAll: () => Promise<Record<string, GitStatus>>;
         fixPlan: (projectPath: string) => Promise<GitFixPlan>;
         fix: (projectPath: string) => Promise<GitFixResult>;
+        push: (projectPath: string) => Promise<GitOpResult>;
+        pull: (projectPath: string) => Promise<GitOpResult>;
+        fetch: (projectPath: string) => Promise<GitOpResult>;
+    };
+    contextMenu: {
+        showProject: (projectPath: string, x: number, y: number) => Promise<{ action: string } | null>;
     };
     dialog: {
         openDirectory: () => Promise<string | null>;
@@ -68,6 +83,12 @@ export interface GitFixPlan {
 export interface GitFixResult {
     success: boolean;
     output: string;
+    error?: string;
+}
+
+export interface GitOpResult {
+    success: boolean;
+    output?: string;
     error?: string;
 }
 
@@ -112,6 +133,13 @@ const electronAPI: ElectronAPI = {
         statusAll: () => ipcRenderer.invoke('git:statusAll'),
         fixPlan: (projectPath: string) => ipcRenderer.invoke('git:fixPlan', projectPath),
         fix: (projectPath: string) => ipcRenderer.invoke('git:fix', projectPath),
+        push: (projectPath: string) => ipcRenderer.invoke('git:push', projectPath),
+        pull: (projectPath: string) => ipcRenderer.invoke('git:pull', projectPath),
+        fetch: (projectPath: string) => ipcRenderer.invoke('git:fetch', projectPath),
+    },
+    contextMenu: {
+        showProject: (projectPath: string, x: number, y: number) =>
+            ipcRenderer.invoke('context-menu:project', { projectPath, x, y }),
     },
     dialog: {
         openDirectory: () => ipcRenderer.invoke('dialog:openDirectory'),

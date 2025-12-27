@@ -11,6 +11,10 @@ A fast, focused terminal emulator for project-based development. Built with Elec
 - **Project Startup Commands** - Configure custom commands that run when opening a project
 - **Auto Project Discovery** - Scan your dev directory to find all projects automatically
 - **Resizable Sidebar** - Drag to resize, preferences are remembered
+- **Project Context Menu** - Right-click projects for quick actions (Open in Finder, Git operations)
+- **Quick Command Presets** - 18 built-in command presets organized by category
+- **Global Default Command** - Set a default startup command for all projects
+- **File Drag & Drop** - Drag files into terminal windows to insert their paths
 
 ## Design: Velocity
 
@@ -84,14 +88,38 @@ VibeTerm automatically detects projects by looking for:
 | ⇅ | Red | Diverged | Rebase & push |
 | ○ | Gray | No remote configured | - |
 
+### Project Context Menu
+
+Right-click any project in the sidebar for quick actions:
+- **Open in Finder** - Open the project folder in macOS Finder
+- **Configure** - Set startup command and project settings
+- **GitHub** submenu:
+  - Push / Pull / Fetch
+  - Fix... - Opens the Git Fix modal for complex operations
+
 ### Startup Commands
 
 Right-click a project (or click the gear icon on hover) to configure a startup command. This command runs automatically when you open the project terminal.
 
-Examples:
+**Quick Command Presets** - Choose from 18 built-in commands organized by category:
+| Category | Commands |
+|----------|----------|
+| AI/Coding | `claude`, `aider`, `gh copilot suggest` |
+| Dev Servers | `npm run dev`, `npm start`, `yarn dev`, `python -m http.server`, `flask run`, `rails server` |
+| Git Tools | `lazygit`, `tig`, `git status` |
+| Editors | `nvim .`, `vim .`, `code .` |
+| Utilities | `htop`, `docker compose up`, `make` |
+
+**Global Default** - Set a default startup command in Settings that applies to all projects without a custom command.
+
+Custom examples:
 - `npm run dev` - Start a dev server
 - `code . && npm start` - Open in VS Code and start
 - `docker-compose up` - Start containers
+
+### File Drag & Drop
+
+Drag files from Finder directly into any terminal window to insert the file path. Paths with spaces are automatically quoted.
 
 ## Tech Stack
 

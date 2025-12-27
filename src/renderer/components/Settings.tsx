@@ -1,8 +1,17 @@
 import React, { useState, useEffect } from 'react';
 
+interface QuickCommand {
+    id: string;
+    command: string;
+    label?: string;
+    category?: string;
+}
+
 interface AppSettings {
     rootDevDirectory?: string;
     autoScanOnStartup?: boolean;
+    quickCommands?: QuickCommand[];
+    defaultStartupCommand?: string;
 }
 
 interface SettingsProps {
@@ -14,12 +23,45 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onProjectsUpdated }) => {
     const [settings, setSettings] = useState<AppSettings>({});
     const [scanning, setScanning] = useState(false);
+    const [newCommand, setNewCommand] = useState('');
 
     useEffect(() => {
         if (isOpen && window.electron) {
             window.electron.settings.get().then(setSettings);
         }
     }, [isOpen]);
+
+    const handleSetDefaultCommand = async (command: string) => {
+        if (!window.electron) return;
+        const newSettings = await window.electron.settings.set({
+            defaultStartupCommand: command || undefined
+        });
+        setSettings(newSettings);
+    };
+
+    const handleAddQuickCommand = async () => {
+        if (!window.electron || !newCommand.trim()) return;
+        const currentCommands = settings.quickCommands || [];
+        const newQuickCommand: QuickCommand = {
+            id: `custom-${Date.now()}`,
+            command: newCommand.trim(),
+            category: 'Custom',
+        };
+        const newSettings = await window.electron.settings.set({
+            quickCommands: [...currentCommands, newQuickCommand]
+        });
+        setSettings(newSettings);
+        setNewCommand('');
+    };
+
+    const handleRemoveQuickCommand = async (id: string) => {
+        if (!window.electron) return;
+        const currentCommands = settings.quickCommands || [];
+        const newSettings = await window.electron.settings.set({
+            quickCommands: currentCommands.filter(cmd => cmd.id !== id)
+        });
+        setSettings(newSettings);
+    };
 
     const handleSetRootDirectory = async () => {
         if (!window.electron) return;
@@ -176,6 +218,101 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onProjectsUpdated 
                                 )}
                             </button>
                         )}
+                    </div>
+
+                    {/* Terminal Commands Section */}
+                    <div className="mb-6">
+                        <h3 className="section-header mb-4">
+                            Terminal Commands
+                        </h3>
+
+                        {/* Default Startup Command */}
+                        <div className="mb-4">
+                            <label
+                                className="block text-sm font-medium mb-2"
+                                style={{ color: 'var(--text-secondary)' }}
+                            >
+                                Default Startup Command
+                            </label>
+                            <div className="flex gap-2">
+                                <input
+                                    type="text"
+                                    value={settings.defaultStartupCommand || ''}
+                                    onChange={(e) => handleSetDefaultCommand(e.target.value)}
+                                    placeholder="e.g., npm run dev"
+                                    className="input flex-1"
+                                />
+                                {settings.defaultStartupCommand && (
+                                    <button
+                                        onClick={() => handleSetDefaultCommand('')}
+                                        className="btn btn-outline"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                Runs for all projects without a custom command
+                            </p>
+                        </div>
+
+                        {/* Quick Commands */}
+                        <div>
+                            <label
+                                className="block text-sm font-medium mb-2"
+                                style={{ color: 'var(--text-secondary)' }}
+                            >
+                                Quick Command Presets
+                            </label>
+                            <div className="flex gap-2 mb-3">
+                                <input
+                                    type="text"
+                                    value={newCommand}
+                                    onChange={(e) => setNewCommand(e.target.value)}
+                                    onKeyDown={(e) => e.key === 'Enter' && handleAddQuickCommand()}
+                                    placeholder="Add custom command..."
+                                    className="input flex-1"
+                                />
+                                <button
+                                    onClick={handleAddQuickCommand}
+                                    disabled={!newCommand.trim()}
+                                    className="btn btn-primary"
+                                >
+                                    Add
+                                </button>
+                            </div>
+                            <div
+                                className="max-h-40 overflow-y-auto rounded-lg p-3"
+                                style={{ backgroundColor: 'var(--bg-surface)' }}
+                            >
+                                <div className="flex flex-wrap gap-2">
+                                    {(settings.quickCommands || []).map((cmd) => (
+                                        <span
+                                            key={cmd.id}
+                                            className="inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-mono"
+                                            style={{
+                                                backgroundColor: 'var(--bg-tertiary)',
+                                                color: 'var(--text-primary)',
+                                            }}
+                                        >
+                                            {cmd.command}
+                                            <button
+                                                onClick={() => handleRemoveQuickCommand(cmd.id)}
+                                                className="ml-1 opacity-60 hover:opacity-100"
+                                                title="Remove"
+                                            >
+                                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                                </svg>
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                            <p className="mt-2 text-xs" style={{ color: 'var(--text-muted)' }}>
+                                {(settings.quickCommands || []).length} commands available as quick presets
+                            </p>
+                        </div>
                     </div>
 
                     {/* Theme Section - Simplified since we only have Velocity */}
