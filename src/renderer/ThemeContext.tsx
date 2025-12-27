@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { AppTheme, getTheme, defaultTheme, applyThemeToDocument } from './themes';
+import { AppTheme, getTheme, defaultTheme, applyThemeToDocument, themeList } from './themes';
 
 interface ThemeContextType {
     theme: AppTheme;
     setThemeById: (id: string) => void;
+    availableThemes: AppTheme[];
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null);
@@ -23,19 +24,18 @@ interface ThemeProviderProps {
 const THEME_STORAGE_KEY = 'vibeterm-theme';
 
 export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElement {
-    // Always use the default (velocity) theme - clear any old theme from storage
+    // Load saved theme or use default
     const [theme, setTheme] = useState<AppTheme>(() => {
-        // Clear old theme from localStorage to force velocity
         const savedThemeId = localStorage.getItem(THEME_STORAGE_KEY);
-        if (savedThemeId && savedThemeId !== 'velocity') {
-            localStorage.removeItem(THEME_STORAGE_KEY);
+        if (savedThemeId) {
+            return getTheme(savedThemeId);
         }
         return defaultTheme;
     });
 
     // Apply theme immediately on mount
     useEffect(() => {
-        applyThemeToDocument(defaultTheme);
+        applyThemeToDocument(theme);
     }, []);
 
     const setThemeById = useCallback((id: string) => {
@@ -46,7 +46,7 @@ export function ThemeProvider({ children }: ThemeProviderProps): React.ReactElem
     }, []);
 
     return (
-        <ThemeContext.Provider value={{ theme, setThemeById }}>
+        <ThemeContext.Provider value={{ theme, setThemeById, availableThemes: themeList }}>
             {children}
         </ThemeContext.Provider>
     );

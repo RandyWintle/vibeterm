@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTheme } from '../ThemeContext';
 
 interface QuickCommand {
     id: string;
@@ -20,7 +21,18 @@ interface SettingsProps {
     onProjectsUpdated: () => void;
 }
 
+// Theme color previews for visual display
+const themeColorPreviews: Record<string, string[]> = {
+    'velocity': ['#EF4444', '#10B981', '#00D9FF', '#C084FC'],
+    'zen-garden': ['#C97065', '#8B9A6D', '#C9A86C', '#7A8B9A'],
+    'neon-noir': ['#FF4757', '#00F5A0', '#FF2E97', '#B026FF'],
+    'forest-canopy': ['#E57373', '#4ADE80', '#D4A656', '#5C9FD4'],
+    'monolith': ['#C9A0A0', '#A0C9A0', '#FFFFFF', '#A0B0C9'],
+    'vibe-mode': ['#FF4757', '#00FF9F', '#FF6B35', '#00E5FF'],
+};
+
 const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onProjectsUpdated }) => {
+    const { theme, setThemeById, availableThemes } = useTheme();
     const [settings, setSettings] = useState<AppSettings>({});
     const [scanning, setScanning] = useState(false);
     const [newCommand, setNewCommand] = useState('');
@@ -315,32 +327,77 @@ const Settings: React.FC<SettingsProps> = ({ isOpen, onClose, onProjectsUpdated 
                         </div>
                     </div>
 
-                    {/* Theme Section - Simplified since we only have Velocity */}
+                    {/* Theme Section */}
                     <div>
                         <h3 className="section-header mb-4">
                             Theme
                         </h3>
-                        <div
-                            className="card p-4 flex items-center gap-4"
-                            style={{ backgroundColor: 'var(--bg-surface)' }}
-                        >
-                            {/* Color dots preview */}
-                            <div className="flex gap-1.5">
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#EF4444' }} />
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#10B981' }} />
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#00D9FF' }} />
-                                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: '#C084FC' }} />
-                            </div>
-                            <div className="flex-1">
-                                <div className="text-sm font-medium" style={{ color: 'var(--text-primary)' }}>
-                                    Velocity
-                                </div>
-                                <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                                    Electric cyan on warm charcoal
-                                </div>
-                            </div>
-                            <div className="badge badge-accent">Active</div>
+                        <div className="space-y-2">
+                            {availableThemes.map((t) => {
+                                const isActive = theme.id === t.id;
+                                const colors = themeColorPreviews[t.id] || ['#666', '#888', '#AAA', '#CCC'];
+                                return (
+                                    <button
+                                        key={t.id}
+                                        onClick={() => setThemeById(t.id)}
+                                        className={`card card-interactive w-full p-4 flex items-center gap-4 text-left transition-all ${
+                                            isActive ? 'ring-2 ring-offset-2' : ''
+                                        }`}
+                                        style={{
+                                            backgroundColor: isActive ? 'var(--bg-elevated, var(--bg-surface))' : 'var(--bg-surface)',
+                                            borderColor: isActive ? 'var(--accent)' : 'var(--border)',
+                                            // @ts-expect-error CSS custom properties
+                                            '--tw-ring-color': 'var(--accent)',
+                                            '--tw-ring-offset-color': 'var(--bg-base)',
+                                        }}
+                                    >
+                                        {/* Color dots preview */}
+                                        <div className="flex gap-1.5">
+                                            {colors.map((color, idx) => (
+                                                <div
+                                                    key={idx}
+                                                    className={`w-3 h-3 rounded-full ${t.isAnimated ? 'animate-pulse' : ''}`}
+                                                    style={{ backgroundColor: color }}
+                                                />
+                                            ))}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span
+                                                    className="text-sm font-medium"
+                                                    style={{ color: 'var(--text-primary)' }}
+                                                >
+                                                    {t.name}
+                                                </span>
+                                                {t.isAnimated && (
+                                                    <span
+                                                        className="text-xs px-1.5 py-0.5 rounded"
+                                                        style={{
+                                                            backgroundColor: 'rgba(255, 107, 53, 0.15)',
+                                                            color: '#FF6B35',
+                                                        }}
+                                                    >
+                                                        ANIMATED
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div
+                                                className="text-xs truncate"
+                                                style={{ color: 'var(--text-muted)' }}
+                                            >
+                                                {t.description || 'No description'}
+                                            </div>
+                                        </div>
+                                        {isActive && (
+                                            <div className="badge badge-accent flex-shrink-0">Active</div>
+                                        )}
+                                    </button>
+                                );
+                            })}
                         </div>
+                        <p className="mt-3 text-xs" style={{ color: 'var(--text-muted)' }}>
+                            {availableThemes.length} themes available. Your selection is saved automatically.
+                        </p>
                     </div>
                 </div>
             </div>
